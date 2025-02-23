@@ -1,4 +1,7 @@
-{ transmit-state }: { config, lib, pkgs, ... }: 
+{ 
+  make-initial-state
+, transmit-state
+}: { config, lib, pkgs, ... }: 
 with lib;
 let 
   statesInstance = name: let 
@@ -66,6 +69,7 @@ in {
     initial-states-scripts.import = mkScript "# Send initial states to services on local machine" (x: x);
     initial-states-scripts.send = mkScript "# Send initial states to services on remote machine" (x: "ssh ${config.networking.hostName} \"${x}\"");
     environment.systemPackages = [
+      make-initial-state
       transmit-state
       (pkgs.writeScriptBin "import-initial-states" ''
       ${config.initial-states-scripts.import}

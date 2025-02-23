@@ -25,7 +25,7 @@
   {
     nixosModules.default  = self.nixosModules.initial-states;
     nixosModules.initial-states = import ./config.nix {
-      inherit (self.packages.${system}) transmit-state;
+      inherit (self.packages.${system}) transmit-state make-initial-state;
     };
 
     nixosConfigurations.demo = nixpkgs.lib.nixosSystem {
