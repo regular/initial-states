@@ -1,0 +1,86 @@
+{
+  "nodes": {
+    "crane": {
+      "locked": {
+        "lastModified": 1739638817,
+        "narHash": "sha256-pPiI27T416xAAUETorkLAgHQMiLT92moOrf0ItHhtPA=",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "rev": "bef2b45cd1273a9e621fb5292de89f4ed59ad812",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ipetkov",
+        "repo": "crane",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1740126099,
+        "narHash": "sha256-ozoOtE2hGsqh4XkTJFsrTkNxkRgShxpQxDynaPZUGxk=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "32fb99ba93fea2798be0e997ea331dd78167f814",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "secrets-service": "secrets-service"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "secrets-service",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1739673031,
+        "narHash": "sha256-Z/GT8ebbvc4goxN4A0A5ACj26G1HaGJO+VetrPuC5Mo=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "538528d55318e0c8af1c307dcf10b7629b988fc3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "secrets-service": {
+      "inputs": {
+        "crane": "crane",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-overlay": "rust-overlay"
+      },
+      "locked": {
+        "lastModified": 1740065385,
+        "narHash": "sha256-zW2VlpT+bHl/tloG3pusC1DJY0zIqlKadw313YBcF9U=",
+        "owner": "regular",
+        "repo": "secrets-service",
+        "rev": "5afb703fc0947cb594820785df7b0295225030e5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "regular",
+        "repo": "secrets-service",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

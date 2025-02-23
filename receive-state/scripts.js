@@ -15,6 +15,7 @@ module.exports = function(env) {
     const q = quiet ? 'ignore' : 'inherit'
     const script = join(__dirname, /*"untar.sh"*/ "untar.sh")
 
+    console.log(env)
     const p = spawn(env.shell || '/bin/sh', ['-euo', 'pipefail', script].concat(extraArgs), {
       env,
       stdio: ['pipe', q, 'pipe'] 

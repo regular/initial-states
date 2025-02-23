@@ -7,15 +7,15 @@
     };
   };
 
-  outputs = inputs@{ self, nixpkgs, secrets, ... }:
+  outputs = inputs@{ self, nixpkgs, ... }:
     let
       system =  "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
     in
   {
-    nixosModules.default  = self.nixosModules.initial-state;
-    nixosModules.initial-state = (import ./config.nix) {
-      package = self.packages.${system}.default;
+    nixosModules.default  = self.nixosModules.initial-states;
+    nixosModules.initial-states = import ./config.nix {
+      inherit (self.packages.${system}) transmit-state;
     };
 
     nixosConfigurations.demo = nixpkgs.lib.nixosSystem {
@@ -23,11 +23,12 @@
       modules = [
         self.nixosModules.default
         {
-          initial-state.my-state = {
+          initial-states.my-state = {
+            socketPath = "foo/bar";
             source = {
               vault = "my-vault";
               item = "my-service";
-              fields = [ "database" ];
+              field = "database";
             };
           };
         }
@@ -35,29 +36,28 @@
     };
 
     packages.${system} = let
-      pkg_deps = with pkgs; [ bash coreutils-full gnutar outils ];
+      pkg_deps = with pkgs; [ bash coreutils-full gnutar outils gawk socat gzip ];
       path = pkgs.lib.makeBinPath pkg_deps;
       boundary-string = "boundary-string-037398047ae4e13fcb3d1181622fed6f";
-      make-transmit-msg = pks.writeScript "make-transmit-msg" ''
+      make-transmit-msg = pkgs.writeScript "make-transmit-msg" (''
         #!${pkgs.bash}/bin/bash
         PATH=${path}
-        boundary="${boundary-string}}"
-      '' + builtins.readFile ./make-transmit-msg.sh;
-    
+        boundary="${boundary-string}"
+      '' + builtins.readFile ./make-transmit-msg.sh);
     in rec {
       # tar.gz a state directory, encrypt it and put it into /var/lib/secrets
-      make-state = pkgs.writeScriptBin "make-initial-state" ''
+      make-initial-state = pkgs.writeScriptBin "make-initial-state" (''
         #!${pkgs.bash}/bin/bash
         PATH="${path}:$PATH" # we assume secretsctl to be in path
-      '' + builtins.readFile ./make-state.sh;
+      '' + builtins.readFile ./make-state.sh);
       
-      # takes a tar.gz stream on stdin and sends it to a unix socket of a local service running receive-initial-state
-      transmit-state = pks.writeScriptBin "transmit-initial-state" ''
+      # takes a tar.gz stream on stdin and sends it to a unix socket of a local service running receive-initial-state.
+      transmit-state = pkgs.writeScriptBin "transmit-initial-state" ''
         #!${pkgs.bash}/bin/bash
         set -euo pipefail
         PATH=${path}
-        SERVICE=$1
-        OUTPUT=$(${make-transmit-msg} | socat - UNIX-CONNECT:/var/run/$SERVICE/initial-state.socket)
+        SOCKET=$1
+        OUTPUT=$(${make-transmit-msg} | socat - UNIX-CONNECT:$SOCKET)
 
         echo "$OUTPUT" >&2
         first_word=$(echo "$OUTPUT" | head -n1 | awk '{print $1}')
@@ -69,7 +69,7 @@
       receive-state = pkgs.buildNpmPackage rec {
         name = "receive-initial-state";
         src = ./receive-state;
-        npmDepsHash = "";
+        npmDepsHash = "sha256-Wbu/7JrZ5yUwWl5nci9Pv8kXhsKpqfF+W1SlCoAtkyM=";
         dontNpmBuild = true;
         makeCacheWritable = true;
         nativeBuildInputs = with pkgs; [
@@ -77,8 +77,8 @@
         ];
         postInstall = ''
           wrapProgram $out/bin/${name} \
-          --set PATH "${path}"
-          --set receive_state_boundary "${boundary-string"
+          --set PATH "${path}" \
+          --set receive_state_boundary "${boundary-string}"
         '';
       };
     };

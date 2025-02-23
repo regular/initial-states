@@ -1,59 +1,42 @@
-# config.secrets.hetzner-robot = {
-#   path = "/etc/hetzner-robot" # defaults to /etc/${name}
-#   source = {
-#     vault = "Business";
-#     item = "hetzner-robot-api"; #defaults to ${name}
-#     fields = [ "username" "credentials" ];
-#   };
-# }
-
-{ package }: { config, lib, pkgs, ... }: 
+{ transmit-state }: { config, lib, pkgs, ... }: 
 with lib;
 let 
-  secretsInstance = name: let 
-    crg = config.secrets.${name};
+  statesInstance = name: let 
+    crg = config.initial-states.${name};
   in {
     options = {
-      path = mkOption rec {
+      socketPath = mkOption rec {
         type = types.nullOr types.str;
-        # if this is uncommented name evals to the entire config! (wtf)
         default = null;
-        description = "path the encrypted secret will be written to. Defaults to /etc/$name.creds";
+        description = "path to the socket that receives the data";
       };
       source = {
         vault = mkOption {
           type = types.str;
-          description = "vault the secret is stored in";
+          description = "vault the initial state is stored in";
         };
 
         item = mkOption rec {
           type = types.nullOr types.str;
           default = null;
-          description = "item inside the vault the secret is stored in. Defaults to $name";
+          description = "item inside the vault the state is stored in. Defaults to $name";
         };
 
-        fields = mkOption {
-          type = lib.types.nonEmptyListOf lib.types.str;
-          description = "list of fields in the item";
-        };
-
-        delimiter = mkOption {
-          type = types.str;
-          default = ",";
-          defaultText = ",";
-          description = "delimiter used when joining item values";
+        field = mkOption {
+          type = lib.types.str;
+          description = "field in the item";
         };
       };
     };
   };
 in {
-  options.secrets = mkOption {
-    type = types.attrsOf (types.submodule secretsInstance);
+  options.initial-states = mkOption {
+    type = types.attrsOf (types.submodule statesInstance);
     default = {};
-    description = "Named instances of secrets";
+    description = "Named instances of intial-states";
   };
 
-  options.secrets-scripts = lib.mkOption {
+  options.initial-states-scripts = lib.mkOption {
     type = lib.types.attrsOf lib.types.str;
     internal = true;
     default = {};
@@ -61,32 +44,31 @@ in {
 
   # Consume the submodule configurations
   config = let
-    mkScript = secretsBin: comment: deco: let
+    mkScript = comment: deco: let
       lines = attrValues (mapAttrs' (name: cfg: let
-        path = "${if cfg.path == null then "/etc/${name}.creds" else cfg.path}";
+        socketPath = "${if cfg.socketPath == null then "/var/run/${name}/initial-state.sock" else cfg.sockePpath}";
         item = if cfg.source.item == null then name else cfg.source.item;
-        save-cmd = deco "sudo mkdir -p $(dirname ${path}) && sudo systemd-creds encrypt - ${path}";
+        transmit-cmd = deco "${transmit-state}/bin/transmit-state ${socketPath}";
       in {
         inherit name;
         value = with builtins; 
-          "$secrets get '${cfg.source.vault}' '${item}' ${toString (map (x: "'${x}'") cfg.source.fields)} --delimiter '${cfg.source.delimiter}' " +
-          "| ${save-cmd}";
-      }) config.secrets);
+          "secretsctl decrypt '${cfg.source.vault}/${cfg.source.item}/${cfg.source.field}' " +
+          "| ${transmit-cmd} ${socketPath}";
+      }) config.states);
     in
     builtins.concatStringsSep "\n" ([ 
       "set -euxo pipefail"
       ""
       comment
       ""
-      "secrets=\"${secretsBin}\""
-    ] ++ lines ++ []);
+    ] ++ lines);
   in {
-    secrets-scripts.import = mkScript "${package}/bin/secrets" "# Add secrets to local machine" (x: x);
-    secrets-scripts.send = mkScript "secrets" "# Send secrets to remote machine" (x: "ssh ${config.networking.hostName} \"${x}\"");
+    initial-states-scripts.import = mkScript "# Send initial states to services on local machine" (x: x);
+    initial-states-scripts.send = mkScript "# Send initial states to services on remote machine" (x: "ssh ${config.networking.hostName} \"${x}\"");
     environment.systemPackages = [
-      package
-      (pkgs.writeScriptBin "import-secrets" ''
-      ${config.secrets-scripts.import}
+      transmit-state
+      (pkgs.writeScriptBin "import-initial-states" ''
+      ${config.initial-states-scripts.import}
       '')
     ];
   };
