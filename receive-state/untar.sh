@@ -1,4 +1,4 @@
-set -euxo pipefail
+set -euo pipefail
 DEST=$1
 
 mkdir -p $DEST

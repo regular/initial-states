@@ -7,9 +7,26 @@ module.exports = function (socketPath, onConnection) {
   return new Promise( (resolve, reject) => {
     //fs.mkdtempSync(join(os.tmpdir(), 'unix-socket'))
     const server = net.createServer({
+      allowHalfOpen: true,
       path: socketPath
     }, stream => {
       debug('incoming conncetion')
+
+      //stream.setKeepAlive(true);
+      //stream.unref(); // Don't keep process alive just for this socket
+/*
+      stream.on('error', err=>{
+        debug(err.message)
+      })
+      stream.on('end', ()=>{
+        debug('end')
+        return false
+      })
+      stream.on('close', ()=>{
+        debug('close')
+        return false
+      })
+*/
       onConnection(stream)
     })
     server.listen(socketPath, err => {

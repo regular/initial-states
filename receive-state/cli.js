@@ -50,28 +50,37 @@ async function main() {
         process.exit(1)
       }
     } else if (cmd == 'server') {
-      const {socketPath} = config
+      const {socketPath, statePath} = config
       if (!socketPath) {
         console.error('missing --socketPath')
         process.exit(1)
       }
+      if (!statePath) {
+        console.error('missing --statePath')
+        process.exit(1)
+      }
       try {
-        await server(socketPath, async stream=>{
-          try {
-            const untar_promise = untar('/tmp/foobar')
-            const untar_in = untar_promise.stdin
-            const [sha, tar_result] = await Promise.all([
-              parse(stream, stream, untar_in, process.stderr),
-              untar_promise
-            ])
-            console.error('xxx', {sha, tar_result})
-            console.error('received initial state')
-          } catch(err) {
-            console.error('session abort:', err.message)
-            // this does not work
-            stream.write(`error ${err.message}\r\n`)
-            stream.end()
-          }
+        await server(socketPath, stream=>{
+          return new Promise( async (resolve, reject) =>{
+            try {
+              const untar_promise = untar(statePath)
+              const untar_in = untar_promise.stdin
+              const [sha, tar_result] = await Promise.all([
+                parse(stream, stream, untar_in, process.stderr),
+                untar_promise
+              ])
+              const {exitCode, stderr} = tar_result
+              if (exitCode !== 0) throw new Error(`tar failed with code ${exitCode}: ${stderr}`)
+              console.error(`wrote initial state to ${statePath}`)
+              stream.write(`ok ${sha}\r\n`)
+              stream.end()
+              if (!config.keep) setImmediate(()=>process.exit(0))
+            } catch(err) {
+              console.error('abort:', err.message)
+              stream.write(`error ${err.message}\r\n`)
+              stream.end()
+            }
+          })
         })
       } catch(err) {
         console.error(err.message)
@@ -165,7 +174,7 @@ function parse(clientin, clientout, hostout, logout) {
     })
 
     function handleError(err) {
-      clientout.write(`error ${err.message}\r\n`)
+      //clientout.write(`error ${err.message}\r\n`)
       //clientout.end()
       logout.write(`${err.message}\n`)
       failed = true
@@ -197,7 +206,7 @@ function parse(clientin, clientout, hostout, logout) {
       const ourHash = hash.digest('hex')
       debug('our hash: %s', ourHash)
       if (footer.sha256 == ourHash) {
-        clientout.write('ok sha256 match\r\n')
+        //clientout.write('ok sha256 match\r\n')
         hostout.end()
         return resolve(ourHash)
       }

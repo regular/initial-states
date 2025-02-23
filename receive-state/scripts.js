@@ -17,17 +17,18 @@ module.exports = function(env) {
 
     const p = spawn(env.shell || '/bin/sh', ['-euo', 'pipefail', script].concat(extraArgs), {
       env,
-      stdio: ['pipe', q, q] 
+      stdio: ['pipe', q, 'pipe'] 
     })
 
     const done = new Promise( (resolve, reject) => {
       p.on('close', exitCode=>{
-        if (exitCode == 0) return resolve({})
-        return reject(new Error(`exit code: ${exitCode}`))
+        //if (exitCode == 0) return resolve({exitCode: 0})
+        resolve({exitCode})
+        //return reject(new Error(`exit code: ${exitCode}`))
       })
     })
 
-    const ret = done//capture(p, {}, [done])
+    const ret = capture(p, {stderr: 2}, [done])
     ret.stdin = p.stdio[0]
     return ret
   }

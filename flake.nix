@@ -41,7 +41,7 @@
       make-transmit-msg = pks.writeScript "make-transmit-msg" ''
         #!${pkgs.bash}/bin/bash
         PATH=${path}
-        local boundary="${boundary-string}}"
+        boundary="${boundary-string}}"
       '' + builtins.readFile ./make-transmit-msg.sh;
     
     in rec {
@@ -54,9 +54,16 @@
       # takes a tar.gz stream on stdin and sends it to a unix socket of a local service running receive-initial-state
       transmit-state = pks.writeScriptBin "transmit-initial-state" ''
         #!${pkgs.bash}/bin/bash
+        set -euo pipefail
         PATH=${path}
-        local SERVICE=$1
-        ${make-transmit-msg} | socat - UNIX-CONNECT:/var/run/$SERVICE/initial-state.socket
+        SERVICE=$1
+        OUTPUT=$(${make-transmit-msg} | socat - UNIX-CONNECT:/var/run/$SERVICE/initial-state.socket)
+
+        echo "$OUTPUT" >&2
+        first_word=$(echo "$OUTPUT" | head -n1 | awk '{print $1}')
+        if [ "$first_word" != "ok" ]; then
+            exit 1
+        fi
       '';
 
       receive-state = pkgs.buildNpmPackage rec {
