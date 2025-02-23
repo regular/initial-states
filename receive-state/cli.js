@@ -1,3 +1,10 @@
+// TODO: when tar fails, we get an exception,
+// but we tell the socket client that everything is ok
+// for some reason, sending data to the socket
+// from the exceptionn handler has no effect ...
+// A timing issue?
+
+
 const name = 'receive_state'
 const crypto = require('crypto')
 const bl = require('bl')
@@ -5,10 +12,29 @@ const loner = require('loner')
 const debug = require('debug')(name)
 
 const server = require('./server')
+const Scripts = require('./scripts')
+const assertDeps = require('./assert-deps')
 
 const config = require('rc')(name, {
   boundary: '---',
-  socketPath: null
+})
+
+
+debug('config: %O', config)
+
+let shell
+try {
+  shell = assertDeps(process.env.PATH, Scripts.deps)
+} catch(err) {
+  console.error(err.message)
+  process.exit(1)
+}
+
+const {
+  untar
+} = Scripts({
+  PATH: process.env.PATH,
+  shell
 })
 
 main()
@@ -32,10 +58,18 @@ async function main() {
       try {
         await server(socketPath, async stream=>{
           try {
-            await parse(stream, stream, process.stdout, process.stderr)
+            const untar_promise = untar('/tmp/foobar')
+            const untar_in = untar_promise.stdin
+            const [sha, tar_result] = await Promise.all([
+              parse(stream, stream, untar_in, process.stderr),
+              untar_promise
+            ])
+            console.error('xxx', {sha, tar_result})
             console.error('received initial state')
           } catch(err) {
-            console.error('session abort')
+            console.error('session abort:', err.message)
+            // this does not work
+            stream.write(`error ${err.message}\r\n`)
             stream.end()
           }
         })
@@ -163,7 +197,8 @@ function parse(clientin, clientout, hostout, logout) {
       const ourHash = hash.digest('hex')
       debug('our hash: %s', ourHash)
       if (footer.sha256 == ourHash) {
-        clientout.write('ok\r\n')
+        clientout.write('ok sha256 match\r\n')
+        hostout.end()
         return resolve(ourHash)
       }
       throw new Error('sha256 mismatch')
