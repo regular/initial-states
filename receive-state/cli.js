@@ -8,10 +8,10 @@ const config = require('rc')(name, {
 
 if (config._.length == 1) {
   const [cmd] = config._
-  if (cmd == 'parse') parse()
+  if (cmd == 'parse') parse(process.stdin, process.stdout)
 }
 
-function parse() {
+function parse(stdin, stdout) {
   const boundary = Buffer.from(config.boundary)
   let wasCRLF = false
   let suppressedCRLF = false
@@ -21,18 +21,23 @@ function parse() {
   let inHeader = true
   let inPayload = false
   let inFooter = false
-  const header = bl()
-  const footer = bl()
+  const header = {}
+  const footer = {}
+  let line = bl()
   
-  process.stdin.pipe(loner('\r\n', config.boundary)).on('end', ()=>{
-    parseFooter(footer.toString().trim())
+  stdin.pipe(loner('\r\n', config.boundary)).on('end', ()=>{
+    parseFooter(footer)
   }).on('data', chunk=>{
     debug('in', chunk)
     const isCRLF = chunk.length == 2 && chunk[0] == 0x0d && chunk[1] == 0x0a
     let isBoundary = false
 
     if (inFooter) {
-      footer.append(chunk)
+      if (isCRLF) {
+        addKeyValue(footer, line.toString())
+        line = new bl()
+      }
+      line.append(chunk)
     } else if (inPayload) {
       if (isCRLF && wasBoundary) {
         inPayload = false
@@ -61,27 +66,36 @@ function parse() {
       if (isCRLF && wasCRLF) {
         inHeader = false
         inPayload = true
-        parseHeader(header.toString().trim())
+        parseHeader(header)
+      } else {
+        if (isCRLF) {
+          addKeyValue(header, line.toString())
+          line = new bl()
+        }
+        line.append(chunk)
       }
-      header.append(chunk)
     }
 
     wasCRLF = isCRLF
     wasBoundary = isBoundary
     wasInPayloal = inPayload
   })
+
+  function addKeyValue(o, line) {
+    let [k, ...v] = line.trim().split('=')
+    v = v.join('=')
+    o[k] = v
+  }
+
+  function send(chunk) {
+    stdout.write(chunk)
+  }
 }
 
-function send(chunk) {
-  console.log('payload chunk', chunk, chunk.toString())
+function parseHeader(header) {
+  console.log('header', header)
 }
 
-function parseHeader(data) {
-  console.log('header:')
-  console.log(data.toString());
-}
-
-function parseFooter(data) {
-  console.log('footer:')
-  console.log(data.toString());
+function parseFooter(footer) {
+  console.log('footer:', footer)
 }
