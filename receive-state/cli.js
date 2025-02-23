@@ -18,7 +18,7 @@ async function main() {
     const [cmd] = config._
     if (cmd == 'parse') {
       try {
-        await parse(process.stdin, process.stdout)
+        await parse(process.stdin, process.stdout, process.stderr, process.stderr)
       } catch(err) {
         console.error(err.message)
         process.exit(1)
@@ -32,9 +32,11 @@ async function main() {
       try {
         await server(socketPath, async stream=>{
           try {
-            await parse(process.stdin, process.stdout)
+            await parse(stream, stream, process.stdout, process.stderr)
+            console.error('received initial state')
           } catch(err) {
-            console.error(err.message)
+            console.error('session abort')
+            stream.end()
           }
         })
       } catch(err) {
@@ -45,7 +47,8 @@ async function main() {
   }
 }
 
-function parse(stdin, stdout) {
+function parse(clientin, clientout, hostout, logout) {
+  let failed = false
   return new Promise( (resolve, reject) => {
     const hash = crypto.createHash('sha256');
     const boundary = Buffer.from(config.boundary)
@@ -61,8 +64,14 @@ function parse(stdin, stdout) {
     const footer = {}
     let line = bl()
     
-    stdin.pipe(loner('\r\n', config.boundary)).on('end', ()=>{
-      parseFooter(footer)
+    clientin.pipe(loner('\r\n', config.boundary)).on('end', ()=>{
+      try {
+        parseFooter(footer)
+      } catch(err) {
+        handleError(err)
+      }
+    }).on('error', err=>{
+      handleError(err)
     }).on('data', chunk=>{
       try {
         debug('in', chunk)
@@ -117,9 +126,17 @@ function parse(stdin, stdout) {
         wasBoundary = isBoundary
         wasInPayloal = inPayload
       } catch(err) {
-        reject(err)
+        handleError(err)
       }
     })
+
+    function handleError(err) {
+      clientout.write(`error ${err.message}\r\n`)
+      //clientout.end()
+      logout.write(`${err.message}\n`)
+      failed = true
+      reject(err)
+    }
 
     function addKeyValue(o, line) {
       let [k, ...v] = line.trim().split('=')
@@ -128,25 +145,28 @@ function parse(stdin, stdout) {
     }
 
     function send(chunk) {
-      stdout.write(chunk)
+      if (failed) return
+      hostout.write(chunk)
       hash.update(chunk)
     }
 
     function parseHeader(header) {
-      console.log('header', header)
+      debug('header %O', header)
       if (header.boundary !== boundary.toString()) {
         throw new Error(`boundary must be ${boundary}`)
       }
     }
 
     function parseFooter(footer) {
-      console.log('footer:', footer)
+      if (failed) return
+      debug('footer: %O', footer)
       const ourHash = hash.digest('hex')
-      console.log('our hash:', ourHash)
+      debug('our hash: %s', ourHash)
       if (footer.sha256 == ourHash) {
-        return resolve()
+        clientout.write('ok\r\n')
+        return resolve(ourHash)
       }
-      reject(new Error('sha256 mismatch'))
+      throw new Error('sha256 mismatch')
     }
   })
 }
