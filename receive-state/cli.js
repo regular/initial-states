@@ -3,8 +3,12 @@ const crypto = require('crypto')
 const bl = require('bl')
 const loner = require('loner')
 const debug = require('debug')(name)
+
+const server = require('./server')
+
 const config = require('rc')(name, {
-  boundary: '---'
+  boundary: '---',
+  socketPath: null
 })
 
 main()
@@ -15,6 +19,24 @@ async function main() {
     if (cmd == 'parse') {
       try {
         await parse(process.stdin, process.stdout)
+      } catch(err) {
+        console.error(err.message)
+        process.exit(1)
+      }
+    } else if (cmd == 'server') {
+      const {socketPath} = config
+      if (!socketPath) {
+        console.error('missing --socketPath')
+        process.exit(1)
+      }
+      try {
+        await server(socketPath, async stream=>{
+          try {
+            await parse(process.stdin, process.stdout)
+          } catch(err) {
+            console.error(err.message)
+          }
+        })
       } catch(err) {
         console.error(err.message)
         process.exit(1)
