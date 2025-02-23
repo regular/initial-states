@@ -1,3 +1,13 @@
+# for use in systemd services as EcecPre=
+#   receive-initial-state server --socketPath sock --statePath mystate
+# The idea is, that this blocks the execution of the main service until the
+# initial state is received.
+# Use
+#   sudo secretsctl decrypt demo/demo-service/demo-item \
+#     | transmit-initial-state sock
+# (the piped stream must be a tar.gz
+# Create it with
+#   make-initial-state demo-state/ demo demo-service demo-item
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -24,7 +34,7 @@
         self.nixosModules.default
         {
           initial-states.my-state = {
-            socketPath = "foo/bar";
+            #socketPath = "foo.socket";
             source = {
               vault = "my-vault";
               item = "my-service";

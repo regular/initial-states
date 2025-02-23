@@ -46,15 +46,15 @@ in {
   config = let
     mkScript = comment: deco: let
       lines = attrValues (mapAttrs' (name: cfg: let
-        socketPath = "${if cfg.socketPath == null then "/var/run/${name}/initial-state.sock" else cfg.sockePpath}";
+        socketPath = "${if cfg.socketPath == null then "/var/run/${name}/initial-state.sock" else cfg.socketPath}";
         item = if cfg.source.item == null then name else cfg.source.item;
-        transmit-cmd = deco "${transmit-state}/bin/transmit-state ${socketPath}";
+        transmit-cmd = deco "${transmit-state}/bin/transmit-initial-state ${socketPath}";
       in {
         inherit name;
         value = with builtins; 
           "secretsctl decrypt '${cfg.source.vault}/${cfg.source.item}/${cfg.source.field}' " +
-          "| ${transmit-cmd} ${socketPath}";
-      }) config.states);
+          "| ${transmit-cmd}";
+      }) config.initial-states);
     in
     builtins.concatStringsSep "\n" ([ 
       "set -euxo pipefail"
