@@ -72,7 +72,7 @@
         fi
       '';
 
-      receive-state = pkgs.buildNpmPackage rec {
+      receive-initial-state = pkgs.buildNpmPackage rec {
         name = "receive-initial-state";
         src = ./receive-state;
         npmDepsHash = "sha256-Wbu/7JrZ5yUwWl5nci9Pv8kXhsKpqfF+W1SlCoAtkyM=";
