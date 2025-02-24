@@ -1,10 +1,10 @@
 # for use in systemd services as EcecPre=
-#   receive-initial-state server --socketPath sock --statePath mystate
+#   receive-initial-state server --socketPath socket --statePath mystate
 # The idea is, that this blocks the execution of the main service until the
 # initial state is received.
 # Use
 #   sudo secretsctl decrypt demo/demo-service/demo-item \
-#     | transmit-initial-state sock
+#     | transmit-initial-state socket
 # (the piped stream must be a tar.gz
 # Create it with
 #   make-initial-state demo-state/ demo demo-service demo-item
