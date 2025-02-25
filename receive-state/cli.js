@@ -1,12 +1,7 @@
-// TODO: when tar fails, we get an exception,
-// but we tell the socket client that everything is ok
-// for some reason, sending data to the socket
-// from the exceptionn handler has no effect ...
-// A timing issue?
-
-
 const name = 'receive_state'
+const fs = require('fs')
 const crypto = require('crypto')
+const {join} = require('path')
 const bl = require('bl')
 const loner = require('loner')
 const debug = require('debug')(name)
@@ -18,7 +13,6 @@ const assertDeps = require('./assert-deps')
 const config = require('rc')(name, {
   boundary: '---',
 })
-
 
 debug('config: %O', config)
 
@@ -38,6 +32,24 @@ const {
 })
 
 main()
+
+async function checkRequiredFiles() {
+  // return true if all files exist withi statePath
+  if (!config.requiredFile) return true
+  const paths = [config.requiredFile].flat()
+  if (paths.length == 0) return
+  const results = await Promise.all(paths.map(async p=>{
+    const full = join(config.statePath, p)
+    try {
+      await fs.promises.access(full)
+      return true
+    } catch(err) {
+      console.error('missing required file %s: %s', full, err.message)
+      return false
+    }
+  }))
+  return results.every(x=>x==true)
+}
 
 async function main() {
   if (config._.length == 1) {
@@ -60,6 +72,10 @@ async function main() {
         process.exit(1)
       }
       try {
+        if (await checkRequiredFiles()) {
+          debug("We have all required files.")
+          process.exit(0)
+        }
         await server(socketPath, stream=>{
           return new Promise( async (resolve, reject) =>{
             try {
@@ -74,7 +90,7 @@ async function main() {
               console.error(`wrote initial state to ${statePath}`)
               stream.write(`ok ${sha}\r\n`)
               stream.end()
-              if (!config.keep) setImmediate(()=>process.exit(0))
+              if (!config.keep && await checkRequiredFiles()) setImmediate(()=>process.exit(0))
             } catch(err) {
               console.error('abort:', err.message)
               stream.write(`error ${err.message}\r\n`)
@@ -84,6 +100,7 @@ async function main() {
         })
       } catch(err) {
         console.error(err.message)
+        debug(err.stack)
         process.exit(1)
       }
     }
