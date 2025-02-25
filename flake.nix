@@ -30,7 +30,8 @@
         self.nixosModules.default
         {
           initial-states.my-state = {
-            #socketPath = "foo.socket";
+            socketPath = "foo.socket";
+            requiredFiles = [ "my-database.sql" ];
             source = {
               vault = "my-vault";
               item = "my-service";

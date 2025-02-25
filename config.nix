@@ -11,7 +11,12 @@ let
       socketPath = mkOption rec {
         type = types.nullOr types.str;
         default = null;
-        description = "path to the socket that receives the data";
+        description = "path to the socket that receives the data (filled-in by the service)";
+      };
+      requiredFiles = mkOption rec {
+        type = types.listOf types.str;
+        default = [];
+        description = "paths (within $STATE_DIRECTORY) that are required for the service to start (filled-in by the service)";
       };
       source = {
         vault = mkOption {
