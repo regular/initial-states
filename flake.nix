@@ -31,7 +31,8 @@
         {
           initial-states.my-state = {
             socketPath = "foo.socket";
-            requiredFiles = [ "my-database.sql" ];
+            #requiredFiles = [ "my-database.sql" ];
+            requiredFiles = [ ];
             source = {
               vault = "my-vault";
               item = "my-service";

@@ -60,9 +60,10 @@ in {
       in {
         inherit name;
         value = with builtins; 
-          #"secretsctl decrypt '${cfg.source.vault}/${cfg.source.item}/${cfg.source.field}' " +
-          "cat \"/var/lib/initial-states/${cfg.source.vault}/${cfg.source.item}/${cfg.source.field}\" " +
-          "| ${transmit-cmd}";
+          if (length cfg.requiredFiles) == 0 then "" else
+            #"secretsctl decrypt '${cfg.source.vault}/${cfg.source.item}/${cfg.source.field}' " +
+            "cat \"/var/lib/initial-states/${cfg.source.vault}/${cfg.source.item}/${cfg.source.field}\" " +
+            "| ${transmit-cmd}";
       }) config.initial-states);
     in
     builtins.concatStringsSep "\n" ([ 
