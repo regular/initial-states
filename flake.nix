@@ -47,6 +47,7 @@
       pkg_deps = with pkgs; [ bash coreutils-full gnutar outils gawk socat gzip ];
       path = pkgs.lib.makeBinPath pkg_deps;
       boundary-string = "boundary-string-037398047ae4e13fcb3d1181622fed6f";
+
       make-transmit-msg = pkgs.writeScript "make-transmit-msg" (''
         #!${pkgs.bash}/bin/bash
         PATH=${path}
@@ -57,6 +58,7 @@
       make-initial-state = pkgs.writeScriptBin "make-initial-state" (''
         #!${pkgs.bash}/bin/bash
         PATH="${path}:$PATH" # we assume secretsctl to be in path
+        MAKE_TRANSMIT_MSG=${make-transmit-msg}
       '' + builtins.readFile ./make-state.sh);
       
       # takes a tar.gz stream on stdin and sends it to a unix socket of a local service running receive-initial-state.
@@ -65,7 +67,7 @@
         set -euo pipefail
         PATH=${path}
         SOCKET=$1
-        OUTPUT=$(${make-transmit-msg} | socat - UNIX-CONNECT:$SOCKET)
+        OUTPUT=$(socat - UNIX-CONNECT:$SOCKET)
 
         echo "$OUTPUT" >&2
         first_word=$(echo "$OUTPUT" | head -n1 | awk '{print $1}')

@@ -6,7 +6,7 @@ FIELD=$4
 
 STATEPATH="/var/lib/initial-states/$VAULT/$ITEM/$FIELD"
 mkdir -p $(dirname "$STATEPATH")
-tar -cz -C "$DIR" -f $STATEPATH "."
+tar -cz -C "$DIR" -f - "." | $MAKE_TRANSMIT_MSG > $STATEPATH
 
 #SECRETPATH="$VAULT/$ITEM/$FIELD"
 #OUTPUT=$(tar -cz -C "$DIR" -f - "." | sudo secretsctl encrypt "$SECRETPATH")
