@@ -2,6 +2,7 @@ const name = 'receive_state'
 const fs = require('fs')
 const crypto = require('crypto')
 const {join} = require('path')
+const tmp = require('tmp-promise')
 const bl = require('bl')
 const loner = require('loner')
 const debug = require('debug')(name)
@@ -25,31 +26,14 @@ try {
 }
 
 const {
-  untar
+  untar,
+  move
 } = Scripts({
   PATH: process.env.PATH,
   shell
 })
 
 main()
-
-async function checkRequiredFiles() {
-  // return true if all files exist withi statePath
-  if (!config.requiredFile) return true
-  const paths = [config.requiredFile].flat()
-  if (paths.length == 0) return
-  const results = await Promise.all(paths.map(async p=>{
-    const full = join(config.statePath, p)
-    try {
-      await fs.promises.access(full)
-      return true
-    } catch(err) {
-      console.error('missing required file %s: %s', full, err.message)
-      return false
-    }
-  }))
-  return results.every(x=>x==true)
-}
 
 async function main() {
   if (config._.length == 1) {
@@ -76,28 +60,29 @@ async function main() {
           debug("We have all required files.")
           process.exit(0)
         }
-        await server(socketPath, stream=>{
-          return new Promise( async (resolve, reject) =>{
-            try {
-              const untar_promise = untar(statePath)
-              const untar_in = untar_promise.stdin
-              const [sha, tar_result] = await Promise.all([
-                parse(stream, stream, untar_in, process.stderr),
-                untar_promise
-              ])
-              const {exitCode, stderr} = tar_result
-              if (exitCode !== 0) throw new Error(`tar failed with code ${exitCode}: ${stderr}`)
-              console.error(`wrote initial state to ${statePath}`)
-              stream.write(`ok ${sha}\r\n`)
-              stream.end()
-              if (!config.keep && await checkRequiredFiles()) setImmediate(()=>process.exit(0))
-            } catch(err) {
-              console.error('abort:', err.message)
-              stream.write(`error ${err.message}\r\n`)
-              stream.end()
-            }
-          })
-        })
+        
+        await server(socketPath, handleStream)
+        
+        async function handleStream(stream) {
+          try {
+            await tmp.withDir( async ({path})=>{
+              try {
+                await untarAndVerify(stream, path)
+                await move(path, statePath)
+              } catch(err) {
+                if (err.message == "sha256 mismatch") {
+                  console.error('Failed attempt to send initial state, will keep listenting')
+                } else throw err
+              }
+            })
+          } catch(err) {
+            if (err.message.includes("rmdir '/tmp")) {
+              console.error('tmp dir was moved')
+            } else throw err
+          }
+          if (!config.keep && await checkRequiredFiles()) setImmediate(()=>process.exit(0))
+        }
+
       } catch(err) {
         console.error(err.message)
         debug(err.stack)
@@ -105,6 +90,54 @@ async function main() {
       }
     }
   }
+}
+
+async function checkRequiredFiles() {
+  // return true if all files exist withi statePath
+  if (!config.requiredFile) return true
+  const paths = [config.requiredFile].flat()
+  if (paths.length == 0) return
+  const results = await Promise.all(paths.map(async p=>{
+    const full = join(config.statePath, p)
+    try {
+      await fs.promises.access(full)
+      return true
+    } catch(err) {
+      console.error('missing required file %s: %s', full, err.message)
+      return false
+    }
+  }))
+  return results.every(x=>x==true)
+}
+
+
+function untarAndVerify(stream, statePath) {
+  return new Promise( async (resolve, reject) =>{
+    try {
+      // untar to tempo directory and mv to statePath
+      // only if successful!
+      // Otherwise, even if a sha mismatch occured, the next start of the
+      // service might happily find all required files and move on!
+
+      const untar_promise = untar(statePath)
+      const untar_in = untar_promise.stdin
+      const [sha, tar_result] = await Promise.all([
+        parse(stream, stream, untar_in, process.stderr),
+        untar_promise
+      ])
+      const {exitCode, stderr} = tar_result
+      if (exitCode !== 0) throw new Error(`tar failed with code ${exitCode}: ${stderr}`)
+      console.error(`wrote initial state to ${statePath}`)
+      stream.write(`ok ${sha}\r\n`)
+      stream.end()
+      resolve()
+    } catch(err) {
+      console.error('abort:', err.message)
+      stream.write(`error ${err.message}\r\n`)
+      stream.end()
+      reject(err)
+    }
+  })
 }
 
 function parse(clientin, clientout, hostout, logout) {
@@ -128,6 +161,7 @@ function parse(clientin, clientout, hostout, logout) {
       try {
         parseFooter(footer)
       } catch(err) {
+        console.error('Error in parseFooter')
         handleError(err)
       }
     }).on('error', err=>{

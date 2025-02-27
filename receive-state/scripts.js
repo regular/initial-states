@@ -2,11 +2,12 @@ const {spawn} = require('child_process')
 const bl = require('bl')
 const {join} = require('path')
 
-const PKG_DEPS = 'bash tar'
+const PKG_DEPS = 'bash tar mv'
 
 module.exports = function(env) {
   return {
-    untar
+    untar,
+    move
   }
 
   function untar(destDir) {
@@ -34,6 +35,9 @@ module.exports = function(env) {
     return ret
   }
 
+  function move(src, dest) {
+    return simpleScript('move.sh', {}, [src, dest])
+  }
   // --
 
   async function simpleScript(scriptName, mapping, extraArgs = [], opts = {}) {
