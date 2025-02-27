@@ -2,7 +2,7 @@ const {spawn} = require('child_process')
 const bl = require('bl')
 const {join} = require('path')
 
-const PKG_DEPS = 'bash tar mv'
+const PKG_DEPS = 'bash tar mv find xargs wc'
 
 module.exports = function(env) {
   return {

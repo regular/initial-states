@@ -44,7 +44,7 @@
     };
 
     packages.${system} = let
-      pkg_deps = with pkgs; [ bash coreutils-full gnutar outils gawk socat gzip ];
+      pkg_deps = with pkgs; [ bash coreutils-full gnutar outils gawk socat gzip findutils ];
       path = pkgs.lib.makeBinPath pkg_deps;
       boundary-string = "boundary-string-037398047ae4e13fcb3d1181622fed6f";
 
