@@ -18,18 +18,60 @@ if [ ! -d "$DEST" ]; then
   exit 1
 fi
 
-# Check if DEST is writable (contents, not the directory itself)
-if [ ! -w "$DEST" ]; then
-  echo "Error: Cannot write to contents of $DEST"
-  exit 1
-fi
+# More forceful approach to clean DEST directory
+echo "Cleaning destination directory..."
+for item in "$DEST"/* "$DEST"/.[!.]* "$DEST"/..?*; do
+  # Skip if no matches are found
+  [ -e "$item" ] || continue
+  
+  # For directories, use rm -rf
+  if [ -d "$item" ]; then
+    rm -rf "$item" || {
+      echo "Warning: Could not remove directory: $item"
+      # Make directory writable and try again
+      chmod -R u+w "$item" 2>/dev/null
+      rm -rf "$item" || {
+        echo "Error: Failed to remove directory even after chmod: $item"
+        exit 1
+      }
+    }
+  else
+    # For files, try to remove and if that fails, make writable first
+    rm -f "$item" || {
+      echo "Warning: Could not remove file: $item"
+      # Make file writable and try again
+      chmod u+w "$item" 2>/dev/null
+      rm -f "$item" || {
+        echo "Error: Failed to remove file even after chmod: $item"
+        exit 1
+      }
+    }
+  fi
+done
 
-# Remove all contents from DEST (including hidden files)
-find "$DEST" -mindepth 1 -delete
-
-# Move all contents from SRC to DEST (including hidden files and subdirectories)
-# We'll use find with only mindepth 1 to get the top level entries, then mv them
-find "$SRC" -mindepth 1 -maxdepth 1 -print0 | xargs -0 -I{} mv {} "$DEST/"
+# For cross-filesystem moves, handle each top-level item individually
+echo "Moving files from source to destination..."
+for item in "$SRC"/* "$SRC"/.[!.]* "$SRC"/..?*; do
+  # Skip if no matches are found
+  [ -e "$item" ] || continue
+  
+  base_name=$(basename "$item")
+  
+  # If destination already exists (despite cleaning), force remove it
+  if [ -e "$DEST/$base_name" ]; then
+    echo "Warning: Destination still has '$base_name', removing it..."
+    rm -rf "$DEST/$base_name" || {
+      echo "Error: Could not remove existing item at destination: $DEST/$base_name"
+      exit 1
+    }
+  fi
+  
+  # Move the item
+  mv "$item" "$DEST/" || {
+    echo "Error: Failed to move item: $item"
+    exit 1
+  }
+done
 
 # Verify the move operation
 if [ "$(find "$SRC" -mindepth 1 | wc -l)" -ne 0 ]; then
