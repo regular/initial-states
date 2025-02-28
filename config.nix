@@ -1,6 +1,6 @@
 { 
   make-initial-state
-, transmit-state
+, transmit-initial-state
 }: { config, lib, pkgs, ... }: 
 with lib;
 let 
@@ -56,7 +56,7 @@ in {
       lines = attrValues (mapAttrs' (name: cfg: let
         socketPath = "${if cfg.socketPath == null then "/var/run/${name}/initial-state.socket" else cfg.socketPath}";
         item = if cfg.source.item == null then name else cfg.source.item;
-        transmit-cmd = deco "sudo ${transmit-state}/bin/transmit-initial-state ${socketPath}";
+        transmit-cmd = deco "sudo ${transmit-initial-state}/bin/transmit-initial-state ${socketPath}";
       in {
         inherit name;
         value = with builtins; 
@@ -78,7 +78,7 @@ in {
     initial-states-scripts.send = mkScript "# Send initial states to services on remote machine" (x: "ssh ${config.networking.hostName} \"${x}\"");
     environment.systemPackages = [
       make-initial-state
-      transmit-state
+      transmit-initial-state
       (pkgs.writeScriptBin "import-initial-states" ''
       ${config.initial-states-scripts.import}
       '')
