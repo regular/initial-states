@@ -61,21 +61,21 @@
         MAKE_TRANSMIT_MSG=${make-transmit-msg}
       '' + builtins.readFile ./make-state.sh);
       
+      transmit-initial-state = pkgs.buildNpmPackage rec {
+        name = "transmit-initial-state";
+        src = ./transmit-state;
+        npmDepsHash = "sha256-49kb3k8Ad7qYC5OTWWrjOmx18glnkV8DuoljdK9U51Y=";
+        dontNpmBuild = true;
+        makeCacheWritable = true;
+        nativeBuildInputs = with pkgs; [
+          makeWrapper
+        ];
+        postInstall = ''
+          wrapProgram $out/bin/${name} \
+          --set PATH "${path}" 
+        '';
+      };
       # takes a tar.gz stream on stdin and sends it to a unix socket of a local service running receive-initial-state.
-      transmit-state = pkgs.writeScriptBin "transmit-initial-state" ''
-        #!${pkgs.bash}/bin/bash
-        set -euo pipefail
-        PATH=${path}
-        SOCKET=$1
-        OUTPUT=$(socat - UNIX-CONNECT:$SOCKET)
-
-        echo "$OUTPUT" >&2
-        first_word=$(echo "$OUTPUT" | head -n1 | awk '{print $1}')
-        if [ "$first_word" != "ok" ]; then
-            exit 1
-        fi
-      '';
-
       receive-initial-state = pkgs.buildNpmPackage rec {
         name = "receive-initial-state";
         src = ./receive-state;

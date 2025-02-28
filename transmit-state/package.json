@@ -1,0 +1,23 @@
+{
+  "name": "transmit-state",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": {
+    "transmit-initial-state": "cli.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Jan Bölsche <jan@lagomorph.de> (http://regular.codes/)",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bl": "^6.0.19",
+    "debug": "^4.4.0",
+    "pull-stdio": "^1.0.0",
+    "pull-stream": "^3.7.0",
+    "pull-unix": "^1.0.0",
+    "rc": "^1.2.8"
+  }
+}
