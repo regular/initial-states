@@ -79,7 +79,7 @@
       receive-initial-state = pkgs.buildNpmPackage rec {
         name = "receive-initial-state";
         src = ./receive-state;
-        npmDepsHash = "sha256-FcBi8wpyCIIyFEarBtD4XbP8vfJssrYVwDnSaWrpinc=";
+        npmDepsHash = "sha256-JipYWoZ7I0AoC8VQXNe46YDJMxqMemEBxQBWHOd/10k=";
         dontNpmBuild = true;
         makeCacheWritable = true;
         nativeBuildInputs = with pkgs; [

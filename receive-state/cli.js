@@ -1,8 +1,8 @@
 const name = 'receive_state'
 const fs = require('fs')
+const fsp = fs.promises
 const crypto = require('crypto')
 const {join} = require('path')
-const tmp = require('tmp-promise')
 const bl = require('bl')
 const loner = require('loner')
 const debug = require('debug')(name)
@@ -46,13 +46,17 @@ async function main() {
         process.exit(1)
       }
     } else if (cmd == 'server') {
-      const {socketPath, statePath} = config
+      const {socketPath, statePath, tmpPath} = config
       if (!socketPath) {
         console.error('missing --socketPath')
         process.exit(1)
       }
       if (!statePath) {
         console.error('missing --statePath')
+        process.exit(1)
+      }
+      if (!tmpPath) {
+        console.error('missing --tmpPath')
         process.exit(1)
       }
       try {
@@ -65,9 +69,10 @@ async function main() {
         
         async function handleStream(stream) {
           try {
-            await tmp.withDir( async ({path})=>{
+            await withTmpDir(tmpPath, async path =>{
               try {
                 await untarAndVerify(stream, path)
+                await fsp.mkdir(statePath)
                 await move(path, statePath)
               } catch(err) {
                 if (err.message == "sha256 mismatch") {
@@ -76,8 +81,8 @@ async function main() {
               }
             })
           } catch(err) {
-            if (err.message.includes("rmdir '/tmp")) {
-              console.error('tmp dir was moved')
+            if (err.message.includes(`rmdir '${tmpPath}`)) {
+              console.error('${path} dir was moved')
             } else throw err
           }
           if (!config.keep && await checkRequiredFiles()) setImmediate(()=>process.exit(0))
@@ -264,4 +269,19 @@ function parse(clientin, clientout, hostout, logout) {
       throw new Error('sha256 mismatch')
     }
   })
+}
+
+// --
+
+async function withTmpDir(parentDir, f) {
+  const random = crypto.randomBytes(8).toString('hex')
+  const path = join(parentDir, random)
+  debug('Creating tmp dir at %s', path)
+  await fsp.mkdir(path, {recursive: true})
+  try {
+    return await f(path)
+  } finally {
+    debug('Removing tmp dir at %s', path)
+    fsp.rm(path, {recursive: true, force: true})
+  }
 }
