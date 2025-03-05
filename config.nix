@@ -56,7 +56,7 @@ in {
       lines = attrValues (mapAttrs' (name: cfg: let
         socketPath = "${if cfg.socketPath == null then "/var/run/${name}/initial-state.socket" else cfg.socketPath}";
         item = if cfg.source.item == null then name else cfg.source.item;
-        transmit-cmd = deco "sudo ${transmit-initial-state}/bin/transmit-initial-state ${socketPath}";
+        transmit-cmd = deco "sudo ${transmit-initial-state}/bin/transmit-initial-state --socketPath ${socketPath}";
       in {
         inherit name;
         value = with builtins; 
